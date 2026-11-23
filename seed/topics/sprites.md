@@ -1,0 +1,24 @@
+---
+type: Topic
+title: sprites
+description: "Small graphical images used in video games to represent characters, objects, or environments."
+tags: [Vision]
+status: stable
+sources:
+  - { id: SRC-KB-0017, resource: "/references/SRC-KB-0017.md", title: Angais/pixel-art-atlas-1.4m }
+generated: { by: kb-librarian/qwen3-vl-8b-instruct, at: "2026-11-20T19:42:09+11:00" }
+x-kb-kind: topic
+x-kb-slug: sprites
+x-kb-origin: auto
+x-kb-relevance: core
+---
+
+Small graphical images used in video games to represent characters, objects, or environments.
+
+# Seen in
+
+* [Angais/pixel-art-atlas-1.4m](../references/SRC-KB-0017.md) (2026-11-06)
+
+# Related
+
+[ai-generated](ai-generated.md), [synthetic](synthetic.md), [pixel-art](pixel-art.md), [Krea](../companies/krea.md), [Krea 2 Turbo](../tools/krea-2-turbo.md), [Angais](../people/angais.md), [Pixel Art Atlas](../datasets/pixel-art-atlas.md)

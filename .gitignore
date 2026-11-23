@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+data/
+import/*
+!import/README.md
+*.db
+*.db-wal
+*.db-shm
+.env
+RULES.local.md

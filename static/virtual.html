@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reading room · Knowledge base</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --ink:#1e2838; --night:#121926; --walnut:#5b3a24; --brass:#c9a15b; --brass-dim:#8e7243; --lamp:#ffd7a1;
+  --glass:rgba(20,27,39,.9); --text:#ece6da; --muted:#a9a196; --serif:"Palatino Linotype",Palatino,"Book Antiqua","Iowan Old Style",Georgia,serif;
+  --sans:system-ui,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--night);color:var(--text);font:15px/1.55 var(--sans);overflow:hidden}
+#scene{position:fixed;inset:0}
+a{color:var(--lamp)}
+button,input,textarea{font:inherit}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.glass{background:var(--glass);border:1px solid rgba(201,161,91,.35);border-radius:10px;backdrop-filter:blur(6px)}
+
+/* plaque + find */
+#plaque{position:fixed;top:16px;left:16px;width:330px;padding:14px 16px;z-index:3}
+#plaque h1{font:600 22px/1.15 var(--serif);margin:0 0 2px;color:var(--brass);letter-spacing:.01em}
+#plaque p{margin:0 0 10px;color:var(--muted);font-size:13px}
+#find{width:100%;padding:8px 10px;border-radius:7px;border:1px solid rgba(201,161,91,.4);background:rgba(0,0,0,.25);color:var(--text)}
+#results{margin:6px 0 0;padding:0;list-style:none;max-height:260px;overflow:auto}
+#results li button{width:100%;text-align:left;background:none;border:0;color:var(--text);padding:5px 6px;border-radius:6px;cursor:pointer}
+#results li button:hover,#results li button:focus-visible{background:rgba(201,161,91,.14)}
+#results .k{color:var(--muted);font-size:12px}
+#legend{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:10px;font-size:12px;color:var(--muted)}
+#legend i{display:inline-block;width:9px;height:14px;border-radius:2px;margin-right:4px;vertical-align:-2px}
+#plaque .links{margin-top:10px;font-size:12px;color:var(--muted)}
+
+/* who's here */
+#present{position:fixed;top:16px;right:16px;width:260px;padding:12px 14px;z-index:3}
+#present h2,#panel h2,#ticker h2{font:600 15px/1.2 var(--serif);color:var(--brass);margin:0 0 6px}
+#present ul{list-style:none;margin:0;padding:0}
+#present li{display:flex;gap:8px;align-items:flex-start;padding:4px 0;cursor:pointer}
+#present .dot{width:10px;height:10px;border-radius:50%;margin-top:6px;flex:0 0 10px;box-shadow:0 0 8px currentColor}
+#present .who{font-weight:600}
+#present .what{color:var(--muted);font-size:12.5px}
+#present .empty{color:var(--muted);font-size:13px}
+
+/* reading panel */
+#panel{position:fixed;top:16px;right:16px;bottom:16px;width:min(420px,calc(100vw - 32px));padding:18px 20px;z-index:4;
+  overflow:auto;display:none}
+#panel.open{display:block}
+#panel .close{position:absolute;top:10px;right:12px;background:none;border:0;color:var(--muted);font-size:22px;cursor:pointer}
+#panel h3{font:600 26px/1.15 var(--serif);margin:2px 0 6px;color:var(--text)}
+#panel .kind{color:var(--muted);font-size:13px}
+#panel .tags span{display:inline-block;border:1px solid var(--brass-dim);color:var(--brass);border-radius:20px;padding:0 9px;margin:2px 3px 2px 0;font-size:12px}
+#panel section{margin-top:16px}
+#panel ul{padding-left:18px;margin:4px 0}
+#panel li{margin:4px 0}
+#panel .ts{font:600 12px/1 var(--sans);color:var(--night);background:var(--lamp);border-radius:4px;padding:2px 6px;text-decoration:none;margin-right:6px}
+#panel .actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.btn{background:var(--brass);color:#1b1408;border:0;border-radius:7px;padding:7px 14px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
+.btn.quiet{background:transparent;color:var(--brass);border:1px solid var(--brass-dim)}
+#ask textarea{width:100%;min-height:84px;background:rgba(0,0,0,.25);color:var(--text);border:1px solid rgba(201,161,91,.4);border-radius:8px;padding:9px}
+#answer section:first-child{white-space:pre-wrap}
+#answer .src{display:block;font-size:13px;margin:3px 0}
+.thinking{color:var(--muted);font-style:italic}
+
+/* map + ticker + hint */
+#map{position:fixed;left:16px;bottom:16px;z-index:3;padding:8px}
+#map canvas{display:block;cursor:pointer}
+#ticker{position:fixed;left:236px;bottom:16px;width:min(440px,calc(100vw - 260px));padding:10px 14px;z-index:3;max-height:150px;overflow:hidden}
+#ticker ol{list-style:none;margin:0;padding:0;font-size:12.5px;color:var(--muted)}
+#ticker b{color:var(--text);font-weight:600}
+#hint{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:2;color:var(--muted);font-size:13px;
+  padding:6px 12px;border-radius:20px;background:rgba(0,0,0,.35);pointer-events:none;white-space:nowrap}
+#ticker:empty{display:none}
+#tip{position:fixed;z-index:5;pointer-events:none;padding:5px 9px;border-radius:6px;background:var(--glass);border:1px solid rgba(201,161,91,.45);
+  font-size:13px;display:none;max-width:280px}
+#tip .k{color:var(--muted);font-size:12px}
+#cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--lamp);opacity:.8;z-index:2;display:none}
+#loading{position:fixed;inset:0;display:grid;place-items:center;z-index:10;background:var(--night);font:italic 20px var(--serif);color:var(--brass)}
+@media (max-width:900px){#map canvas{width:140px;height:118px}#present{display:none}#ticker{display:none}#plaque{width:calc(100vw - 32px)}#hint{display:none}}
+</style>
+</head>
+<body>
+<div id="scene" role="img" aria-label="A 3D reading room. Each book is an entry in the knowledge base."></div>
+<div id="loading">Lighting the lamps…</div>
+
+<div id="plaque" class="glass">
+  <h1>The reading room</h1>
+  <p id="counts">Loading the shelves</p>
+  <input id="find" type="search" placeholder="Find a book or shelf" aria-label="Find a book or shelf" autocomplete="off">
+  <ul id="results" aria-live="polite"></ul>
+  <div id="legend"></div>
+  <div class="links"><a href="/kingdom">Back to the square</a> &nbsp; <a href="/library">Open the list view</a> &nbsp; <a href="#" id="toDesk">Ask the librarian</a> &nbsp; <a href="#" id="refresh">Re-shelve</a></div>
+</div>
+
+<div id="present" class="glass"><h2>In the library</h2><ul id="who"></ul></div>
+
+<aside id="panel" class="glass" aria-live="polite">
+  <button class="close" aria-label="Close" id="closePanel">×</button>
+  <div id="panelBody"></div>
+</aside>
+
+<div id="map" class="glass"><canvas id="mapc" width="200" height="168" aria-label="Floor plan. Click to walk there."></canvas></div>
+<div id="ticker" class="glass"></div>
+<div id="hint">Click to look around · W A S D to walk · click a book to read it · Esc to free the mouse</div>
+<div id="cross"></div>
+<div id="tip"></div>
+
+<script type="module">
+import * as THREE from "/static/three.min.js";
+
+/* ------------------------------------------------------------------ palette */
+const KIND = {
+  topic:["#7a2e2e","Topics"], concept:["#2f5d50","Concepts"], technique:["#3e5c8a","Techniques"],
+  tool:["#b07a2a","Tools"], llm:["#2c7a7b","Models"], dataset:["#4f7a3a","Datasets"], library:["#6b4e7a","Libraries"],
+  service:["#8a6a4a","Services"], company:["#55606e","Companies"], person:["#9a4e3a","People"],
+};
+const AGENT_COLORS = ["#ffcf7a","#9fd8ff","#c6a7ff","#9ff0c4","#ffa7b6","#ffe29f"];
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hms = t => { if (t == null) return ""; t = Math.floor(t); const h = Math.floor(t/3600), m = Math.floor(t%3600/60), s = t%60;
+  return h ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` : `${m}:${String(s).padStart(2,"0")}`; };
+function hash(s){ let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; }
+
+$("legend").innerHTML = Object.values(KIND).map(([c, l]) => `<span><i style="background:${c}"></i>${l}</span>`).join("");
+
+/* ------------------------------------------------------------------ renderer + room */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+$("scene").appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#121926");
+scene.fog = new THREE.Fog("#121926", 26, 72);
+const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.05, 120);
+const EYE = 1.62;
+camera.position.set(0, EYE, 16.2);
+let yaw = 0, pitch = -0.09;
+
+scene.add(new THREE.HemisphereLight("#ffe7c4", "#2a3a58", 0.8));
+const W = 24, D = 20;                         // half-extents of the hall
+
+function canvasTex(w, h, draw, repeat) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  draw(c.getContext("2d"), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...repeat); }
+  return t;
+}
+const floorTex = canvasTex(512, 512, (g, w, h) => {
+  for (let y = 0; y < h; y += 32) for (let x = -((y / 32) % 2) * 64; x < w; x += 128) {
+    const l = 26 + hash(x * 7 + y) * 10;
+    g.fillStyle = `hsl(25 38% ${l}%)`; g.fillRect(x, y, 127, 31);
+    g.fillStyle = "rgba(0,0,0,.25)"; g.fillRect(x, y + 31, 128, 1); g.fillRect(x + 127, y, 1, 32);
+  }
+}, [30, 25]);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(W * 2, D * 2), new THREE.MeshStandardMaterial({ map: floorTex, roughness: .8 }));
+floor.rotation.x = -Math.PI / 2; floor.name = "floor"; scene.add(floor);
+
+const rug = new THREE.Mesh(new THREE.PlaneGeometry(10, 12), new THREE.MeshStandardMaterial({
+  map: canvasTex(256, 300, (g, w, h) => {
+    g.fillStyle = "#4a1f22"; g.fillRect(0, 0, w, h); g.strokeStyle = "#c9a15b"; g.lineWidth = 4; g.strokeRect(14, 14, w - 28, h - 28);
+    g.lineWidth = 1.5; g.strokeRect(26, 26, w - 52, h - 52);
+  }), roughness: 1 }));
+rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.005, 6); scene.add(rug);
+
+const wallMat = new THREE.MeshStandardMaterial({ color: "#1e2838", roughness: .95 });
+const wainMat = new THREE.MeshStandardMaterial({ color: "#3b2617", roughness: .7 });
+function wall(w, h, x, z, ry) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat); m.position.set(x, h / 2, z); m.rotation.y = ry; scene.add(m);
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.1), wainMat); p.position.set(x, .55, z); p.rotation.y = ry;
+  p.position.add(new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry)).multiplyScalar(.01)); scene.add(p);
+}
+wall(W * 2, 7, 0, -D, 0); wall(W * 2, 7, 0, D, Math.PI); wall(D * 2, 7, -W, 0, Math.PI / 2); wall(D * 2, 7, W, 0, -Math.PI / 2);
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W * 2, D * 2), new THREE.MeshStandardMaterial({ color: "#0e131d" }));
+ceil.rotation.x = Math.PI / 2; ceil.position.y = 7; scene.add(ceil);
+
+/* lamps: emissive shades everywhere, a handful of real lights */
+const shadeMat = new THREE.MeshStandardMaterial({ color: "#2a1d10", emissive: "#ffd7a1", emissiveIntensity: 1.6 });
+function lamp(x, z, real) {
+  const g = new THREE.Group();
+  const cord = new THREE.Mesh(new THREE.CylinderGeometry(.01, .01, 2.2), new THREE.MeshBasicMaterial({ color: "#111" }));
+  cord.position.y = 5.9; g.add(cord);
+  const shade = new THREE.Mesh(new THREE.ConeGeometry(.45, .35, 20, 1, true), shadeMat); shade.position.y = 4.65; g.add(shade);
+  g.position.set(x, 0, z); scene.add(g);
+  if (real) { const l = new THREE.PointLight("#ffcf8f", 22, 16, 1.6); l.position.set(x, 4.3, z); scene.add(l); }
+}
+[[0, 6, 1], [0, -6, 1], [-12, 0, 1], [12, 0, 1], [-12, -14, 1], [12, -14, 1], [0, 15, 1], [-12, 12, 0], [12, 12, 0], [0, -16, 1]]
+  .forEach(([x, z, r]) => lamp(x, z, r));
+
+/* text plaques */
+function plaque(text, w, h, opts = {}) {
+  const px = 256, cw = Math.round(px * w), ch = Math.round(px * h);
+  const tex = canvasTex(cw, ch, (g) => {
+    g.fillStyle = opts.bg || "#2a1d10"; g.fillRect(0, 0, cw, ch);
+    g.strokeStyle = "#c9a15b"; g.lineWidth = 6; g.strokeRect(6, 6, cw - 12, ch - 12);
+    g.fillStyle = opts.fg || "#e5c88f"; g.textAlign = "center"; g.textBaseline = "middle";
+    let size = Math.round(ch * (opts.scale || .46));
+    g.font = `600 ${size}px "Palatino Linotype", Palatino, Georgia, serif`;
+    while (g.measureText(text).width > cw - 40 && size > 10) { size -= 2; g.font = `600 ${size}px "Palatino Linotype", Palatino, Georgia, serif`; }
+    g.fillText(text, cw / 2, ch / 2 + 2);
+  });
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: .5, metalness: .2,
+    emissive: "#ffffff", emissiveMap: tex, emissiveIntensity: .35 }));
+}
+
+/* ------------------------------------------------------------------ layout -> geometry */
+const caseMat = new THREE.MeshStandardMaterial({ color: "#5b3a24", roughness: .75 });
+const CASE_LEN = 3.0, CASE_H = 2.6, CASE_D = .45, LEVELS = 6, LEVEL_ORDER = [3, 2, 4, 1, 5, 0];
+const SLOTS_Z = [-1.5, 1.5, -4.5, 4.5, -7.5, 7.5, -10.5, 10.5, -13.5];  // middle of each row first
+const SLOTS_X = [-1.5, 1.5, -4.5, 4.5, -7.5, 7.5, -10.5, 10.5, -13.5, 13.5, -16.5, 16.5, -19.5, 19.5];
+const WEST_ROWS = [-7, -12, -17, -22], EAST_ROWS = [7, 12, 17, 22];
+
+let world = null;            // everything built from /api/v1/layout
+const colliders = [];        // {minX,maxX,minZ,maxZ}
+const pickables = [];        // meshes the ray can hit
+
+function buildLibrary(L) {
+  if (world) { scene.remove(world.group); world.books.geometry.dispose(); }
+  const group = new THREE.Group(); scene.add(group);
+  colliders.length = 0; pickables.length = 0;
+  const cases = {}, books = [];
+
+  function placeCase(c, wing, pos, ry) {
+    const g = new THREE.Group(); g.position.copy(pos); g.rotation.y = ry; group.add(g);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(CASE_LEN, CASE_H, .05), caseMat); back.position.set(0, CASE_H / 2, -CASE_D / 2); g.add(back);
+    for (const sx of [-CASE_LEN / 2, CASE_LEN / 2]) { const s = new THREE.Mesh(new THREE.BoxGeometry(.06, CASE_H, CASE_D), caseMat); s.position.set(sx, CASE_H / 2, 0); g.add(s); }
+    for (let i = 0; i <= LEVELS; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(CASE_LEN, .04, CASE_D), caseMat); b.position.set(0, .12 + i * .41, 0); g.add(b); }
+    const sign = plaque(c.title, 2.6, .34); sign.position.set(0, CASE_H + .28, .05); g.add(sign);
+    sign.userData = { type: "case", id: c.id }; pickables.push(sign);
+    g.updateMatrixWorld(true);
+    const front = new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry));
+    const half = new THREE.Vector3(Math.cos(ry), 0, -Math.sin(ry)).multiplyScalar(CASE_LEN / 2 + .05);
+    const a = pos.clone().add(half), b = pos.clone().sub(half);
+    colliders.push({ minX: Math.min(a.x, b.x) - .35, maxX: Math.max(a.x, b.x) + .35, minZ: Math.min(a.z, b.z) - .35, maxZ: Math.max(a.z, b.z) + .35 });
+    cases[c.id] = { ...c, wing, group: g, front, center: pos.clone(), stand: pos.clone().add(front.clone().multiplyScalar(1.7)) };
+    // books, left to right, bottom to top
+    let x = -CASE_LEN / 2 + .08, lvl = 0;
+    for (const bk of c.books) {
+      const th = .045 + Math.min(bk.nsrc || 0, 6) * .012 + (bk.insights ? .01 : 0);
+      if (x + th > CASE_LEN / 2 - .06) { x = -CASE_LEN / 2 + .08; lvl++; if (lvl >= LEVELS) break; }
+      const ht = .26 + hash(bk.slug) * .09, shelf = LEVEL_ORDER[lvl];   // eye-level shelves fill first
+      const local = new THREE.Vector3(x + th / 2, .14 + shelf * .41 + ht / 2, .02 + hash(bk.slug + "d") * .03);
+      const m = new THREE.Matrix4().compose(local.clone().applyMatrix4(g.matrixWorld),
+        new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry + (hash(bk.slug + "t") - .5) * .06),
+        new THREE.Vector3(th, ht, .24));
+      books.push({ ...bk, matrix: m, caseId: c.id, world: local.clone().applyMatrix4(g.matrixWorld),
+        stand: local.clone().applyMatrix4(g.matrixWorld).setY(0).add(front.clone().multiplyScalar(1.25)), front });
+      x += th + .006;
+    }
+  }
+
+  const wing = id => L.wings.find(w => w.id === id)?.cases || [];
+  const slotsWest = WEST_ROWS.flatMap(x => SLOTS_Z.map(z => new THREE.Vector3(x, 0, z)));
+  const slotsEast = EAST_ROWS.flatMap(x => SLOTS_Z.map(z => new THREE.Vector3(x, 0, z)));
+  const slotsNorth = SLOTS_X.map(x => new THREE.Vector3(x, 0, -18.6));
+  wing("general").forEach((c, i) => slotsWest[i] && placeCase(c, "general", slotsWest[i], Math.PI / 2));
+  wing("products").forEach((c, i) => slotsEast[i] && placeCase(c, "products", slotsEast[i], -Math.PI / 2));
+  wing("toolknowledge").forEach((c, i) => slotsNorth[i] && placeCase(c, "toolknowledge", slotsNorth[i], 0));
+
+  // wing banners over the aisles
+  [["General knowledge", -4.5, -Math.PI / 2 + Math.PI], ["Tools & products", 4.5, Math.PI / 2 - Math.PI]].forEach(([t, x]) => {
+    const p = plaque(t, 4.6, .7, { bg: "#1b2433", scale: .5 }); p.position.set(x * 2.1, 4.6, 6); p.rotation.y = x < 0 ? .35 : -.35; group.add(p);
+  });
+  const nk = plaque("Tool-specific knowledge", 5, .7, { bg: "#1b2433", scale: .5 }); nk.position.set(0, 4.2, -15.6); group.add(nk);
+
+  // the librarian's desk
+  const desk = new THREE.Group(); desk.position.set(0, 0, 1.2); group.add(desk);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(4.2, .12, 1.3), caseMat); top.position.y = 1.0; desk.add(top);
+  const front = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1, .1), new THREE.MeshStandardMaterial({ color: "#3b2617" })); front.position.set(0, .5, .6); desk.add(front);
+  const deskLamp = new THREE.Group(); deskLamp.position.set(-1.6, 1.06, -.15); desk.add(deskLamp);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(.015, .05, .34, 10), new THREE.MeshStandardMaterial({ color: "#c9a15b", metalness: .8, roughness: .3 }));
+  stem.position.y = .17; deskLamp.add(stem);
+  const green = new THREE.Mesh(new THREE.CylinderGeometry(.08, .2, .12, 20, 1, true), new THREE.MeshStandardMaterial({ color: "#1f5a3a", emissive: "#2f8f5a", emissiveIntensity: .5, side: THREE.DoubleSide }));
+  green.position.y = .38; deskLamp.add(green);
+  const bulb = new THREE.PointLight("#ffe0a8", 4, 4, 2); bulb.position.y = .3; deskLamp.add(bulb);
+  const librarian = lanternFigure("#c9a15b"); librarian.position.set(0, 0, -.25); desk.add(librarian);
+  const ds = plaque("Ask the librarian", 2.6, .4); ds.position.set(0, .62, .66); desk.add(ds);
+  [top, front, ds, ...librarian.children].forEach(m => { m.userData = { type: "desk" }; pickables.push(m); });
+  colliders.push({ minX: -2.5, maxX: 2.5, minZ: .2, maxZ: 2.3 });
+
+  // new arrivals table + catalogue lectern by the entrance
+  const table = new THREE.Mesh(new THREE.BoxGeometry(2.6, .08, 1.2), caseMat); table.position.set(-4.5, .85, 13.5); group.add(table);
+  const tl = plaque("New arrivals", 2.2, .32); tl.position.set(-4.5, 1.25, 14.15); group.add(tl);
+  table.userData = tl.userData = { type: "new" }; pickables.push(table, tl);
+  colliders.push({ minX: -6.1, maxX: -2.9, minZ: 12.6, maxZ: 14.4 });
+  const fresh = L.wings.flatMap(w => w.cases.flatMap(c => c.books)).filter(b => b.new).slice(0, 18);
+  fresh.forEach((b, i) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(.32, .05, .24), new THREE.MeshStandardMaterial({ color: (KIND[b.kind] || KIND.concept)[0], roughness: .6 }));
+    m.position.set(-5.6 + (i % 6) * .42, .92 + Math.floor(i / 6) * .055, 13.2 + (i % 2) * .3); m.rotation.y = (hash(b.slug) - .5) * .8;
+    m.userData = { type: "book", slug: b.slug, name: b.name, kind: b.kind }; group.add(m); pickables.push(m);
+  });
+  const lect = new THREE.Mesh(new THREE.BoxGeometry(.7, 1.1, .5), caseMat); lect.position.set(4.5, .55, 13.5); group.add(lect);
+  const ll = plaque("Catalogue", 1.4, .3); ll.position.set(4.5, 1.32, 13.78); ll.rotation.x = -.5; group.add(ll);
+  lect.userData = ll.userData = { type: "catalogue" }; pickables.push(lect, ll);
+  colliders.push({ minX: 3.9, maxX: 5.1, minZ: 13, maxZ: 14 });
+
+  // media wall: screens either side of the entrance
+  const screens = {};
+  L.media.forEach((s, i) => {
+    if (i >= 20) return;
+    const side = i % 2 ? 1 : -1, n = Math.floor(i / 2), col = n % 5, row = Math.floor(n / 5);
+    const x = side * (6 + col * 3.4), y = 1.6 + row * 2.1;
+    const scr = plaque(s.title.length > 46 ? s.title.slice(0, 44) + "…" : s.title, 3, 1.7, { bg: "#0d1420", fg: "#ffe9c4", scale: .14 });
+    scr.position.set(x, y, D - .05); scr.rotation.y = Math.PI; scr.userData = { type: "source", id: s.id, title: s.title };
+    group.add(scr); pickables.push(scr);
+    screens[s.id] = { pos: new THREE.Vector3(x, 0, D - 2.2) };
+  });
+  const mw = plaque("Watch room", 3, .44, { bg: "#1b2433" }); mw.position.set(-10.8, 5.4, D - .06); mw.rotation.y = Math.PI; group.add(mw);
+
+  // all books as one instanced mesh
+  const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ roughness: .62, metalness: .02 }), Math.max(books.length, 1));
+  const col = new THREE.Color();
+  books.forEach((b, i) => {
+    mesh.setMatrixAt(i, b.matrix);
+    col.set((KIND[b.kind] || KIND.concept)[0]).offsetHSL((hash(b.slug + "h") - .5) * .03, 0, (hash(b.slug + "l") - .5) * .12);
+    if (b.relevance === "core") col.offsetHSL(0, .05, .05);
+    mesh.setColorAt(i, col);
+  });
+  mesh.count = books.length; mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  mesh.userData = { type: "books" }; group.add(mesh); pickables.push(mesh);
+
+  books.forEach((b, i) => { b.i = i; });
+
+  world = { group, cases, bySlug: Object.fromEntries(books.map(b => [b.slug, b])), screens, books: mesh, list: books, desk, selected: null };
+  drawMapBase();
+  const n = L.counts.entries;
+  $("counts").textContent = n ? `${n} books on ${Object.keys(cases).length} shelves, ${L.media.length} recordings in the watch room`
+    : "The shelves are empty. Analyze a video in the downloader and it will be shelved here.";
+}
+
+/* ------------------------------------------------------------------ figures (librarian + agents) */
+function lanternFigure(color) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: .18, roughness: .55 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(.2, .3, 1.15, 20), mat); body.position.y = .62; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.19, 20, 14), new THREE.MeshStandardMaterial({ emissive: color, emissiveIntensity: .9, color: "#2a2116" }));
+  head.position.y = 1.42; g.add(head);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .4 }));
+  halo.scale.set(1.2, 1.2, 1); halo.position.y = 1.4; g.add(halo);
+  return g;
+}
+const haloTex = canvasTex(128, 128, (g) => { const r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  r.addColorStop(0, "rgba(255,255,255,.9)"); r.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = r; g.fillRect(0, 0, 128, 128); });
+
+function labelSprite(lines, color) {
+  const c = document.createElement("canvas"); c.width = 512; c.height = 128;
+  const g = c.getContext("2d");
+  g.fillStyle = "rgba(18,25,38,.82)"; g.beginPath(); g.roundRect(4, 4, 504, 120, 20); g.fill();
+  g.strokeStyle = color; g.lineWidth = 3; g.stroke();
+  g.textAlign = "center"; g.fillStyle = "#f3ead8"; g.font = '600 40px "Palatino Linotype", Palatino, Georgia, serif';
+  g.fillText(lines[0].slice(0, 26), 256, 52);
+  g.fillStyle = "#b9b0a2"; g.font = "28px system-ui, Segoe UI, sans-serif";
+  const t = lines[1] || ""; g.fillText(t.length > 38 ? t.slice(0, 36) + "…" : t, 256, 98);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true }));
+  s.scale.set(1.9, .47, 1); return s;
+}
+
+const avatars = {};          // name -> {fig, label, path, target, color, data}
+function agentColor(a) { return a.color || AGENT_COLORS[Math.floor(hash(a.name) * AGENT_COLORS.length)]; }
+function locationPoint(loc) {
+  if (!world) return new THREE.Vector3(0, 0, 18);
+  if (!loc || loc === "entrance") return new THREE.Vector3((Math.random() < .5 ? -1 : 1) * (1.4 + Math.random()), 0, 19.2);
+  if (loc === "desk") { const side = Math.random() < .5 ? -1 : 1; return new THREE.Vector3(side * (3 + Math.random() * 1.2), 0, 2 + Math.random() * 1.5); }
+  if (loc === "catalogue") return new THREE.Vector3(4.5, 0, 15.2);
+  if (loc === "new-arrivals") return new THREE.Vector3(-4.5, 0, 15.2);
+  if (loc === "media") return new THREE.Vector3(-8, 0, D - 2.4);
+  if (loc.startsWith("entry:")) { const b = world.bySlug[loc.slice(6)]; if (b) return b.stand.clone(); }
+  if (loc.startsWith("shelf:")) {
+    const id = loc.slice(6); const c = world.cases[id] || Object.values(world.cases).find(c => c.id.startsWith(id));
+    if (c) return c.stand.clone();
+  }
+  if (loc.startsWith("source:")) { const s = world.screens[loc.slice(7)]; if (s) return s.pos.clone(); }
+  return new THREE.Vector3(0, 0, 10);
+}
+function route(from, to) {
+  // walk along aisles: rows run north-south, so cross between wings via the corridors at their ends
+  if (Math.abs(from.x - to.x) < 1.2 || (Math.abs(from.x) < 4 && Math.abs(to.x) < 4)) return [to];
+  const cz = (from.z + to.z) / 2 < -6 ? -16.3 : 12.4;
+  return [new THREE.Vector3(from.x, 0, cz), new THREE.Vector3(to.x, 0, cz), to];
+}
+function syncAgents(list) {
+  const seen = new Set();
+  for (const a of list) {
+    seen.add(a.name);
+    let av = avatars[a.name];
+    const color = agentColor(a);
+    if (!av) {
+      const fig = lanternFigure(color); fig.position.copy(locationPoint("entrance")); scene.add(fig);
+      av = avatars[a.name] = { fig, color, path: [], loc: null, act: null, label: null };
+    }
+    if (a.location !== av.loc) { av.loc = a.location; av.path = route(av.fig.position.clone(), locationPoint(a.location)); }
+    if (a.activity !== av.act) {
+      av.act = a.activity; if (av.label) av.fig.remove(av.label);
+      av.label = labelSprite([a.name, a.activity], color); av.label.position.y = 2.25; av.fig.add(av.label);
+    }
+    av.data = a;
+  }
+  for (const [name, av] of Object.entries(avatars)) if (!seen.has(name)) { scene.remove(av.fig); delete avatars[name]; }
+  $("who").innerHTML = list.length ? list.map(a => `<li data-name="${esc(a.name)}"><span class="dot" style="color:${agentColor(a)};background:${agentColor(a)}"></span>
+    <span><span class="who">${esc(a.name)}</span>${a.role ? ` <span class="what">${esc(a.role)}</span>` : ""}<br><span class="what">${esc(a.activity || "")}</span></span></li>`).join("")
+    : `<li class="empty">No agents right now. When an agent uses the knowledge base tools, it walks in here.</li>`;
+  document.querySelectorAll("#who li[data-name]").forEach(li => li.onclick = () => {
+    const av = avatars[li.dataset.name]; if (av) travel(av.fig.position.clone().add(new THREE.Vector3(0, 0, 2.2)), av.fig.position.clone().setY(1.4));
+  });
+}
+function stepAgents(dt) {
+  for (const av of Object.values(avatars)) {
+    av.fig.visible = av.fig.position.distanceTo(camera.position.clone().setY(0)) > 1.8;   // never block your view
+    if (!av.path.length) { av.fig.children[2].material.opacity = .32 + Math.sin(performance.now() / 600 + hash(av.color) * 6) * .08; continue; }
+    const p = av.fig.position, t = av.path[0], d = t.clone().sub(p).setY(0), dist = d.length();
+    const v = reduceMotion ? 999 : 1.7 * dt;
+    if (dist <= v) { p.copy(t); av.path.shift(); } else { p.add(d.multiplyScalar(v / dist)); av.fig.rotation.y = Math.atan2(d.x, d.z); }
+    av.fig.position.y = Math.abs(Math.sin(performance.now() / 160)) * .04;
+  }
+}
+
+/* ------------------------------------------------------------------ moving the visitor */
+const keys = {};
+let locked = false, travelAnim = null;
+addEventListener("keydown", e => { if (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA") return; keys[e.code] = true; });
+addEventListener("keyup", e => { keys[e.code] = false; });
+function blocked(x, z) {
+  if (x < -W + .5 || x > W - .5 || z < -D + .5 || z > D - .5) return true;
+  return colliders.some(c => x > c.minX && x < c.maxX && z > c.minZ && z < c.maxZ);
+}
+function stepVisitor(dt) {
+  if (travelAnim) {
+    const k = Math.min(1, (performance.now() - travelAnim.t0) / travelAnim.ms), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    camera.position.lerpVectors(travelAnim.from, travelAnim.to, e);
+    yaw = travelAnim.yaw0 + (travelAnim.yaw1 - travelAnim.yaw0) * e; pitch = travelAnim.p0 + (travelAnim.p1 - travelAnim.p0) * e;
+    if (k >= 1) travelAnim = null;
+  } else {
+    const f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
+    const s = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+    if (!locked) yaw -= ((keys.KeyE ? 1 : 0) - (keys.KeyQ ? 1 : 0)) * dt * 1.6;
+    if (f || s) {
+      const sp = (keys.ShiftLeft || keys.ShiftRight ? 6.5 : 3.4) * dt;
+      const dx = (-Math.sin(yaw) * f + Math.cos(yaw) * s) * sp, dz = (-Math.cos(yaw) * f - Math.sin(yaw) * s) * sp;
+      const p = camera.position;
+      if (!blocked(p.x + dx, p.z)) p.x += dx;
+      if (!blocked(p.x, p.z + dz)) p.z += dz;
+    }
+  }
+  camera.rotation.set(pitch, yaw, 0, "YXZ");
+}
+function travel(to, lookAt) {
+  const from = camera.position.clone(); to = to.clone(); to.y = EYE;
+  const dir = lookAt.clone().sub(to); let yaw1 = Math.atan2(-dir.x, -dir.z);
+  while (yaw1 - yaw > Math.PI) yaw1 -= 2 * Math.PI; while (yaw1 - yaw < -Math.PI) yaw1 += 2 * Math.PI;
+  const p1 = Math.atan2(dir.y, Math.hypot(dir.x, dir.z));
+  const ms = reduceMotion ? 1 : Math.min(2400, 500 + from.distanceTo(to) * 70);
+  travelAnim = { from, to, t0: performance.now(), ms, yaw0: yaw, yaw1, p0: pitch, p1 };
+}
+const _c = new THREE.Color(), _m = new THREE.Matrix4();
+function select(b) {
+  const mesh = world.books;
+  if (world.selected) {               // put the previous book back
+    const p = world.selected; mesh.setMatrixAt(p.i, p.matrix); mesh.setColorAt(p.i, p.color);
+  }
+  world.selected = null;
+  if (b) {
+    mesh.getColorAt(b.i, _c); b.color = _c.clone();
+    _m.copy(b.matrix).premultiply(new THREE.Matrix4().makeTranslation(b.front.x * .1, 0, b.front.z * .1));
+    mesh.setMatrixAt(b.i, _m); mesh.setColorAt(b.i, new THREE.Color("#ffd7a1"));
+    world.selected = b;
+  }
+  mesh.instanceMatrix.needsUpdate = true; mesh.instanceColor.needsUpdate = true;
+}
+function goToBook(b) {
+  const at = b.stand.clone().add(b.front.clone().multiplyScalar(2.1));
+  travel(at, b.world.clone().setY((b.world.y + 1.3) / 2));
+  select(b);
+}
+
+/* pointer: look, hover, click */
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+renderer.domElement.addEventListener("click", e => {
+  const hit = pick(locked ? 0 : e.clientX, locked ? 0 : e.clientY, locked);
+  if (hit) { if (locked) document.exitPointerLock(); return interact(hit); }
+  if (!locked && !matchMedia("(pointer: coarse)").matches) renderer.domElement.requestPointerLock();
+});
+document.addEventListener("pointerlockchange", () => {
+  locked = document.pointerLockElement === renderer.domElement;
+  $("cross").style.display = locked ? "block" : "none"; $("tip").style.display = "none";
+});
+addEventListener("mousemove", e => {
+  if (locked) { yaw -= e.movementX * .0023; pitch = Math.max(-1.2, Math.min(1.2, pitch - e.movementY * .0023)); hover(innerWidth / 2, innerHeight / 2, true); return; }
+  if (e.target === renderer.domElement) hover(e.clientX, e.clientY, false); else $("tip").style.display = "none";
+});
+let dragLook = null; // touch: drag to look
+renderer.domElement.addEventListener("touchstart", e => { dragLook = [e.touches[0].clientX, e.touches[0].clientY]; }, { passive: true });
+renderer.domElement.addEventListener("touchmove", e => { if (!dragLook) return; const t = e.touches[0];
+  yaw += (t.clientX - dragLook[0]) * .004; pitch = Math.max(-1.2, Math.min(1.2, pitch + (t.clientY - dragLook[1]) * .004)); dragLook = [t.clientX, t.clientY]; }, { passive: true });
+
+function pick(x, y, center) {
+  if (!world) return null;
+  mouse.set(center ? 0 : (x / innerWidth) * 2 - 1, center ? 0 : -(y / innerHeight) * 2 + 1);
+  ray.setFromCamera(mouse, camera); ray.far = 14;
+  const h = ray.intersectObjects(pickables, false)[0];
+  if (!h) return null;
+  if (h.object.userData.type === "books") { const b = world.list[h.instanceId]; return b ? { type: "book", slug: b.slug, name: b.name, kind: b.kind, b } : null; }
+  return h.object.userData;
+}
+function hover(x, y, center) {
+  const h = pick(x, y, center), tip = $("tip");
+  if (!h) { tip.style.display = "none"; renderer.domElement.style.cursor = locked ? "none" : "grab"; return; }
+  renderer.domElement.style.cursor = "pointer";
+  const text = h.type === "book" ? `<b>${esc(h.name)}</b><div class=k>${esc((KIND[h.kind] || [0, h.kind])[1])}${h.b?.owner ? " in " + esc(h.b.owner) : ""}</div>`
+    : h.type === "case" ? `<b>${esc(world.cases[h.id]?.title)}</b><div class=k>${world.cases[h.id]?.books.length} books</div>`
+    : h.type === "desk" ? "<b>Ask the librarian</b>" : h.type === "source" ? `<b>${esc(h.title)}</b><div class=k>Open the recording</div>`
+    : h.type === "catalogue" ? "<b>Catalogue</b><div class=k>Find a book</div>" : h.type === "new" ? "<b>New arrivals</b><div class=k>Added this week</div>" : "";
+  tip.innerHTML = text; tip.style.display = "block";
+  tip.style.left = Math.min(x + 16, innerWidth - 300) + "px"; tip.style.top = (y + 16) + "px";
+}
+function interact(h) {
+  if (h.type === "book") { const b = world.bySlug[h.slug]; if (b) select(b); openEntry(h.slug); }
+  else if (h.type === "desk") openAsk();
+  else if (h.type === "source") open(`/library/s/${h.id}`, "_blank");
+  else if (h.type === "catalogue") { $("find").focus(); }
+  else if (h.type === "new") open("/whatsnew", "_blank");
+  else if (h.type === "case") viewCase(world.cases[h.id]);
+}
+
+/* ------------------------------------------------------------------ panels */
+function openPanel(html) { $("panelBody").innerHTML = html; $("panel").classList.add("open"); $("present").style.display = "none"; }
+$("closePanel").onclick = () => { $("panel").classList.remove("open"); $("present").style.display = ""; world && select(null); };
+addEventListener("keydown", e => { if (e.key === "Escape" && !locked) $("closePanel").click(); });
+
+async function openEntry(slug) {
+  openPanel(`<p class="thinking">Taking the book off the shelf…</p>`);
+  const r = await fetch(`/api/v1/entities/${encodeURIComponent(slug)}`); if (!r.ok) return openPanel("<p>That book has been moved or removed. Re-shelve to refresh.</p>");
+  const e = await r.json();
+  const seenKey = new Set(); e.seen_in = e.seen_in.filter(m => { const k = m.source_id + ":" + m.t; if (seenKey.has(k)) return false; seenKey.add(k); return true; });
+  const ts = (sid, t) => t != null ? `<a class="ts" href="/library/s/${sid}?t=${Math.floor(t)}" target="_blank">${hms(t)}</a>` : "";
+  const list = (xs, f) => xs.length ? `<ul>${xs.map(f).join("")}</ul>` : "";
+  openPanel(`<div class="kind">${esc((KIND[e.kind] || [0, e.kind])[1])}${e.owner ? ` in ${esc(e.owner)}` : e.parents.length ? ` in ${esc(e.parents.at(-1))}` : ""}</div>
+    <h3>${esc(e.name)}</h3><div class="tags">${e.tags.map(t => `<span>${esc(t)}</span>`).join("")}</div>
+    <p>${esc(e.description) || "<span class=thinking>No description yet.</span>"}</p>
+    ${e.principles.length ? `<section><h2>Principles</h2>${list(e.principles, p => `<li>${ts(p.source_id, p.t)}${esc(p.text)}</li>`)}</section>` : ""}
+    ${e.tips.length ? `<section><h2>Tips for ${esc(e.name)}</h2>${list(e.tips, p => `<li>${ts(p.source_id, p.t)}${esc(p.text)}</li>`)}</section>` : ""}
+    ${e.knowledge.length ? `<section><h2>${esc(e.name)} knowledge</h2>${list(e.knowledge, k => `<li><a href="#" data-slug="${esc(k.name)}">${esc(k.name)}</a> <span class="kind">${esc(k.description || "")}</span></li>`)}</section>` : ""}
+    ${e.notes.length ? `<section><h2>Your notes</h2>${list(e.notes, n => `<li>${esc(n.text)}</li>`)}</section>` : ""}
+    ${e.seen_in.length ? `<section><h2>Seen in</h2>${list(e.seen_in.slice(0, 12), m => `<li>${ts(m.source_id, m.t)}<a href="${m.watch}" target="_blank">${esc(m.title)}</a></li>`)}</section>` : ""}
+    <div class="actions"><button class="btn" id="askAbout">Ask about ${esc(e.name)}</button><a class="btn quiet" href="${e.url}" target="_blank">Open the full page</a></div>`);
+  $("askAbout").onclick = () => openAsk(`What does the library say about ${e.name}?`);
+  document.querySelectorAll("#panelBody [data-slug]").forEach(a => a.onclick = ev => { ev.preventDefault();
+    const b = world.list.find(x => x.name === a.dataset.slug); if (b) { goToBook(b); openEntry(b.slug); } });
+}
+function viewCase(c) {   // step back far enough to see the whole bookcase
+  travel(c.center.clone().add(c.front.clone().multiplyScalar(3.9)), c.center.clone().setY(1.35)); showCase(c);
+}
+function showCase(c) {
+  openPanel(`<div class="kind">${esc({ general: "General knowledge", products: "Tools & products", toolknowledge: "Tool-specific knowledge" }[c.wing])}</div>
+    <h3>${esc(c.title)}</h3><p class="kind">${c.books.length} books</p>
+    <ul>${c.books.map(b => `<li><a href="#" data-s="${esc(b.slug)}">${esc(b.name)}</a> <span class="kind">${esc((KIND[b.kind] || [0, b.kind])[1])}</span></li>`).join("")}</ul>`);
+  document.querySelectorAll("#panelBody [data-s]").forEach(a => a.onclick = ev => { ev.preventDefault(); goToBook(world.bySlug[a.dataset.s]); openEntry(a.dataset.s); });
+}
+function openAsk(prefill = "") {
+  if (world) travel(new THREE.Vector3(0, 0, 5.4), new THREE.Vector3(0, 1.25, .9));
+  openPanel(`<div class="kind">The librarian's desk</div><h3>Ask the librarian</h3>
+    <p class="kind">Answers come only from the library, with links to the exact moment in each recording.</p>
+    <form id="ask"><textarea id="q" placeholder="How do agents avoid picking up the same task twice?">${esc(prefill)}</textarea>
+    <div class="actions"><button class="btn">Ask</button></div></form><div id="answer"></div>`);
+  $("q").focus();
+  $("ask").onsubmit = async ev => {
+    ev.preventDefault(); const q = $("q").value.trim(); if (!q) return;
+    $("answer").innerHTML = `<p class="thinking">The librarian is reading…</p>`;
+    const r = await fetch("/api/v1/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q, agent: "Visitor" }) });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); $("answer").innerHTML = `<p>The librarian can't answer right now: ${esc(d.detail || r.statusText)}. Check that Ollama is running.</p>`; return; }
+    const a = await r.json();
+    $("answer").innerHTML = `<section>${esc(a.answer).replace(/\[(\d+)\]/g, (m, n) => { const s = a.sources.find(x => x.n == n); return s ? `<a href="${s.link}" target="_blank">[${n}]</a>` : m; })}</section>
+      <section><h2>Sources</h2>${a.sources.map(s => `<a class="src" href="${s.link}" target="_blank">[${s.n}] ${esc(s.title)}</a>`).join("")}</section>
+      ${a.follow_ups.length ? `<section><h2>Ask next</h2>${a.follow_ups.map(f => `<button class="btn quiet" style="margin:3px 4px 3px 0" data-f="${esc(f)}">${esc(f)}</button>`).join("")}</section>` : ""}
+      <p class="kind">Confidence: ${esc(a.confidence)}</p>`;
+    document.querySelectorAll("#answer [data-f]").forEach(b => b.onclick = () => { $("q").value = b.dataset.f; $("ask").requestSubmit(); });
+  };
+}
+$("toDesk").onclick = e => { e.preventDefault(); openAsk(); };
+
+/* find */
+$("find").addEventListener("input", () => {
+  const q = $("find").value.trim().toLowerCase(); const out = $("results");
+  if (!q || !world) { out.innerHTML = ""; return; }
+  const shelves = Object.values(world.cases).filter(c => c.title.toLowerCase().includes(q)).slice(0, 4);
+  const books = world.list.filter(b => b.name.toLowerCase().includes(q) || b.tags.some(t => t.toLowerCase().includes(q))).slice(0, 10);
+  out.innerHTML = shelves.map(c => `<li><button data-case="${esc(c.id)}">${esc(c.title)} <span class="k">shelf, ${c.books.length} books</span></button></li>`).join("")
+    + books.map(b => `<li><button data-book="${esc(b.slug)}">${esc(b.name)} <span class="k">${esc((KIND[b.kind] || [0, b.kind])[1])}</span></button></li>`).join("")
+    || `<li class="k" style="padding:4px 6px">Nothing on the shelves by that name. Try the librarian.</li>`;
+  out.querySelectorAll("[data-book]").forEach(b => b.onclick = () => { goToBook(world.bySlug[b.dataset.book]); openEntry(b.dataset.book); });
+  out.querySelectorAll("[data-case]").forEach(b => b.onclick = () => viewCase(world.cases[b.dataset.case]));
+});
+
+/* ------------------------------------------------------------------ floor plan */
+const mapc = $("mapc"), mg = mapc.getContext("2d");
+const toMap = (x, z) => [(x + W) / (2 * W) * 200, (z + D) / (2 * D) * 168];
+let mapBase = null;
+function drawMapBase() {
+  const c = document.createElement("canvas"); c.width = 200; c.height = 168; const g = c.getContext("2d");
+  g.fillStyle = "#1e2838"; g.fillRect(0, 0, 200, 168);
+  g.fillStyle = "#6b4a30";
+  for (const k of Object.values(world.cases)) {
+    const [x, y] = toMap(k.center.x, k.center.z); const along = Math.abs(k.front.x) > .5;
+    along ? g.fillRect(x - 1.5, y - 6, 3, 12) : g.fillRect(x - 6, y - 1.5, 12, 3);
+  }
+  g.fillStyle = "#c9a15b"; const [dx, dy] = toMap(0, 1.2); g.fillRect(dx - 9, dy - 3, 18, 6);
+  g.fillStyle = "#3a4a66"; for (let i = 0; i < 10; i++) { const [sx] = toMap((i % 2 ? 1 : -1) * (6 + Math.floor(i / 2) * 3.4), 0); g.fillRect(sx - 5, 165, 10, 3); }
+  mapBase = c;
+}
+function drawMap() {
+  if (!mapBase) return; mg.drawImage(mapBase, 0, 0);
+  for (const av of Object.values(avatars)) { const [x, y] = toMap(av.fig.position.x, av.fig.position.z);
+    mg.fillStyle = av.color; mg.beginPath(); mg.arc(x, y, 3.2, 0, 7); mg.fill(); }
+  const [x, y] = toMap(camera.position.x, camera.position.z);
+  mg.save(); mg.translate(x, y); mg.rotate(-yaw); mg.fillStyle = "#ffd7a1";
+  mg.beginPath(); mg.moveTo(0, -6); mg.lineTo(4, 4); mg.lineTo(-4, 4); mg.closePath(); mg.fill(); mg.restore();
+}
+mapc.addEventListener("click", e => {
+  const r = mapc.getBoundingClientRect(); const x = (e.clientX - r.left) / 200 * 2 * W - W, z = (e.clientY - r.top) / 168 * 2 * D - D;
+  if (!blocked(x, z)) travel(new THREE.Vector3(x, 0, z), new THREE.Vector3(x - Math.sin(yaw), EYE, z - Math.cos(yaw)));
+});
+
+/* ------------------------------------------------------------------ data */
+async function loadLayout() {
+  const r = await fetch("/api/v1/layout"); buildLibrary(await r.json());
+  for (const av of Object.values(avatars)) { av.loc = null; }   // re-route to the new shelf positions
+}
+function tickerHTML(log) {
+  return log.length ? `<h2>Recently</h2><ol>${log.slice(0, 6).map(l => `<li><b>${esc(l.name)}</b> ${esc(l.text || "moved")} <span>${esc((l.created || "").slice(11, 16))}</span></li>`).join("")}</ol>` : "";
+}
+async function poll() {
+  try { const r = await fetch("/api/v1/agents"); const d = await r.json(); syncAgents(d.agents); $("ticker").innerHTML = tickerHTML(d.log); }
+  catch { /* server restarting; try again */ }
+}
+$("refresh").onclick = e => { e.preventDefault(); loadLayout(); };
+
+/* ------------------------------------------------------------------ loop */
+addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(.12, (now - last) / 1000); last = now;
+  stepVisitor(dt); stepAgents(dt);
+  drawMap(); renderer.render(scene, camera); requestAnimationFrame(frame);
+}
+window.__kb = { avatars, camera, get world() { return world; } };
+await loadLayout(); await poll();
+setInterval(poll, 2000);
+camera.rotation.set(pitch, yaw, 0, "YXZ");
+$("loading").remove();
+requestAnimationFrame(frame);
+const deep = new URLSearchParams(location.search).get("entry");
+if (deep && world.bySlug[deep]) { goToBook(world.bySlug[deep]); openEntry(deep); }
+</script>
+</body>
+</html>

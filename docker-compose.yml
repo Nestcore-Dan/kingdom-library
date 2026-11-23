@@ -1,0 +1,21 @@
+# The Kingdom Library. Start it with:  docker compose up -d   then open http://localhost:8090
+# Your library lives in the kb-data volume. Ollama (ollama.com) on this computer is optional: it tidies new
+# material and answers questions at the desk. Without it, search and reading still work.
+services:
+  kb:
+    build: .
+    container_name: kb            # Kingdom One connects to the library by this name (docker exec kb ...)
+    restart: unless-stopped
+    ports: ["127.0.0.1:8090:8090"]
+    volumes:
+      - kb-data:/data
+      - ./import:/import          # drop folders or .zip files here, then Libraries → Import a library → /import/<name>
+    environment:
+      KB_OWNER: ${KB_OWNER:-the owner}
+      KB_OLLAMA_URL: http://host.docker.internal:11434
+      KB_MODEL: ${KB_MODEL:-qwen3:4b}
+      KB_EXTENSIONS: YouTube downloader=http://localhost:8080
+      KB_SERVICES: ytdl=http://host.docker.internal:8080
+    extra_hosts: ["host.docker.internal:host-gateway"]
+volumes:
+  kb-data:
